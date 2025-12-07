@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "workflow_name": "InvoiceProcessing_v1",
+  "description": "LangGraph invoice processing with HITL checkpoint/resume and Bigtool tool selection.",
+  "config": {
+    "match_threshold": 0.90,
+    "two_way_tolerance_pct": 5,
+    "human_review_queue": "human_review_queue",
+    "checkpoint_table": "checkpoints",
+    "default_db": "sqlite:///./demo.db",
+    "app_base_url": "http://localhost:8000"
+  },
+  "inputs": {
+    "invoice_payload": {
+      "invoice_id": "string",
+      "vendor_name": "string",
+      "vendor_tax_id": "string",
+      "invoice_date": "string",
+      "due_date": "string",
+      "amount": "number",
+      "currency": "string",
+      "line_items": [
+        { "desc": "string", "qty": "number", "unit_price": "number", "total": "number" }
+      ],
+      "attachments": ["string"]
+    }
+  }
+}
