@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice Processing LangGraph Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { margin: 5px 0; padding: 6px 12px; }
+    pre { background: #111; color: #0f0; padding: 10px; white-space: pre-wrap; max-height: 260px; overflow: auto; }
+    .card { border: 1px solid #ccc; padding: 12px; margin-bottom: 16px; border-radius: 6px; }
+    label { display: block; margin-top: 4px; }
+    input, textarea { width: 100%; padding: 4px; margin-top: 2px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>Invoice Processing LangGraph Agent</h1>
+  <p>Backend: <code>http://localhost:8000</code></p>
+
+  <!-- 1. Happy path -->
+  <div class="card">
+    <h2>1. Run Happy Path (No HITL)</h2>
+    <button onclick="runOk()">Run OK Invoice (₹8000)</button>
+    <pre id="okResult"></pre>
+  </div>
+
+  <!-- 2. HITL path -->
+  <div class="card">
+    <h2>2. Run HITL Path (Will Pause & Create Checkpoint)</h2>
+    <button onclick="runHitl()">Run HITL Invoice (₹12000)</button>
+    <pre id="hitlResult"></pre>
+  </div>
+
+  <!-- 3. Human review queue -->
+  <div class="card">
+    <h2>3. List Pending Human Reviews</h2>
+    <button onclick="loadPending()">Load Pending Checkpoints</button>
+    <pre id="pendingResult"></pre>
+  </div>
+
+  <!-- 4. Human decision -->
+  <div class="card">
+    <h2>4. Submit Human Decision</h2>
+    <label>
+      Checkpoint ID:
+      <input id="checkpointIdInput" placeholder="paste checkpoint_id here" />
+    </label>
+    <label>
+      Decision:
+      <select id="decisionInput">
+        <option value="ACCEPT">ACCEPT</option>
+        <option value="REJECT">REJECT</option>
+      </select>
+    </label>
+    <label>
+      Notes:
+      <textarea id="notesInput" rows="2">Looks okay, proceed.</textarea>
+    </label>
+    <label>
+      Reviewer ID:
+      <input id="reviewerIdInput" value="sri" />
+    </label>
+    <button onclick="sendDecision()">Submit Decision</button>
+    <pre id="decisionResult"></pre>
+  </div>
+
+  <script>
+    const BASE_URL = "http://localhost:8000";
+
+    async function runOk() {
+      const body = {
+        invoice_payload: {
+          invoice_id: "INV-OK-1",
+          vendor_name: "Acme Supplies",
+          vendor_tax_id: "GSTIN-22ABCDE1234F1Z5",
+          invoice_date: "2025-11-01",
+          due_date: "2025-11-30",
+          amount: 8000.0,
+          currency: "INR",
+          line_items: [
+            { desc: "Office chairs", qty: 8, unit_price: 1000, total: 8000 }
+          ],
+          attachments: ["s3://invoices/inv-ok-1.pdf"]
+        }
+      };
+
+      const res = await fetch(BASE_URL + "/workflow/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json();
+      document.getElementById("okResult").textContent =
+        JSON.stringify(json, null, 2);
+    }
+
+    async function runHitl() {
+      const body = {
+        invoice_payload: {
+          invoice_id: "INV-HITL-1",
+          vendor_name: "Acme Supplies",
+          vendor_tax_id: "GSTIN-22ABCDE1234F1Z5",
+          invoice_date: "2025-11-01",
+          due_date: "2025-11-30",
+          amount: 12000.0,
+          currency: "INR",
+          line_items: [
+            { desc: "Office chairs", qty: 10, unit_price: 1200, total: 12000 }
+          ],
+          attachments: ["s3://invoices/inv-hitl-1.pdf"]
+        }
+      };
+
+      const res = await fetch(BASE_URL + "/workflow/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json();
+      document.getElementById("hitlResult").textContent =
+        JSON.stringify(json, null, 2);
+    }
+
+    async function loadPending() {
+      const res = await fetch(BASE_URL + "/human-review/pending");
+      const json = await res.json();
+      document.getElementById("pendingResult").textContent =
+        JSON.stringify(json, null, 2);
+
+      // Convenience: auto-fill first checkpoint_id (if any)
+      if (json.items && json.items.length > 0) {
+        document.getElementById("checkpointIdInput").value =
+          json.items[0].checkpoint_id;
+      }
+    }
+
+    async function sendDecision() {
+      const checkpoint_id = document.getElementById("checkpointIdInput").value;
+      const decision = document.getElementById("decisionInput").value;
+      const notes = document.getElementById("notesInput").value;
+      const reviewer_id = document.getElementById("reviewerIdInput").value;
+
+      const body = { checkpoint_id, decision, notes, reviewer_id };
+
+      const res = await fetch(BASE_URL + "/human-review/decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json();
+      document.getElementById("decisionResult").textContent =
+        JSON.stringify(json, null, 2);
+    }
+  </script>
+</body>
+</html>
